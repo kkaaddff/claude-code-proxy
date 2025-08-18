@@ -8,7 +8,7 @@ from src.models.claude import ClaudeMessagesRequest
 def convert_openai_to_claude_response(
     openai_response: dict, original_request: ClaudeMessagesRequest
 ) -> dict:
-    """Convert OpenAI response to Claude format."""
+    """中文说明"""""
 
     # Extract response data
     choices = openai_response.get("choices", [])
@@ -81,7 +81,7 @@ def convert_openai_to_claude_response(
 async def convert_openai_streaming_to_claude(
     openai_stream, original_request: ClaudeMessagesRequest, logger
 ):
-    """Convert OpenAI streaming response to Claude streaming format."""
+    """中文说明"""""
 
     message_id = f"msg_{uuid.uuid4().hex[:24]}"
 
@@ -221,7 +221,7 @@ async def convert_openai_streaming_to_claude_with_cancellation(
     openai_client,
     request_id: str,
 ):
-    """Convert OpenAI streaming response to Claude streaming format with cancellation support."""
+    """中文说明"""""
 
     message_id = f"msg_{uuid.uuid4().hex[:24]}"
 

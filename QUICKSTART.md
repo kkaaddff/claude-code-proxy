@@ -4,10 +4,6 @@
 
 ### Step 1: Install Dependencies
 ```bash
-# Using UV (recommended)
-uv sync
-
-# Or using pip
 pip install -r requirements.txt
 ```
 
@@ -76,7 +72,7 @@ ANTHROPIC_BASE_URL=http://localhost:8082 claude
 ## 🧪 Test Your Setup
 ```bash
 # Quick test
-python src/test_claude_to_openai.py
+python tests/test_main.py
 ```
 
 That's it! Now Claude Code can use any OpenAI-compatible provider! 🎉

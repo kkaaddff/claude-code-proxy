@@ -25,25 +25,25 @@ openai_client = OpenAIClient(
 )
 
 async def validate_api_key(x_api_key: Optional[str] = Header(None), authorization: Optional[str] = Header(None)):
-    """Validate the client's API key from either x-api-key header or Authorization header."""
+    """验证客户端的API密钥，可以从x-api-key头部或Authorization头部获取。"""
     client_api_key = None
     
-    # Extract API key from headers
+    # 从头部提取API密钥
     if x_api_key:
         client_api_key = x_api_key
     elif authorization and authorization.startswith("Bearer "):
         client_api_key = authorization.replace("Bearer ", "")
     
-    # Skip validation if ANTHROPIC_API_KEY is not set in the environment
+    # 如果环境中未设置ANTHROPIC_API_KEY，则跳过验证
     if not config.anthropic_api_key:
         return
         
-    # Validate the client API key
+    # 验证客户端API密钥
     if not client_api_key or not config.validate_client_api_key(client_api_key):
-        logger.warning(f"Invalid API key provided by client")
+        logger.warning(f"客户端提供了无效的API密钥")
         raise HTTPException(
             status_code=401,
-            detail="Invalid API key. Please provide a valid Anthropic API key."
+            detail="无效的API密钥。请提供有效的Anthropic API密钥。"
         )
 
 @router.post("/v1/messages")
@@ -59,12 +59,12 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
         # Convert Claude request to OpenAI format
         openai_request = convert_claude_to_openai(request, model_manager)
 
-        # Check if client disconnected before processing
+        # 检查客户端是否在处理之前断开连接
         if await http_request.is_disconnected():
-            raise HTTPException(status_code=499, detail="Client disconnected")
+            raise HTTPException(status_code=499, detail="客户端已断开连接")
 
         if request.stream:
-            # Streaming response - wrap in error handling
+            # 流式响应 - 包装在错误处理中
             try:
                 openai_stream = openai_client.create_chat_completion_stream(
                     openai_request, request_id
@@ -87,8 +87,8 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
                     },
                 )
             except HTTPException as e:
-                # Convert to proper error response for streaming
-                logger.error(f"Streaming error: {e.detail}")
+                # 转换为流式错误的正确响应格式
+                logger.error(f"流式错误: {e.detail}")
                 import traceback
 
                 logger.error(traceback.format_exc())
@@ -99,7 +99,7 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
                 }
                 return JSONResponse(status_code=e.status_code, content=error_response)
         else:
-            # Non-streaming response
+            # 非流式响应
             openai_response = await openai_client.create_chat_completion(
                 openai_request, request_id
             )
@@ -112,7 +112,7 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
     except Exception as e:
         import traceback
 
-        logger.error(f"Unexpected error processing request: {e}")
+        logger.error(f"处理请求时发生意外错误: {e}")
         logger.error(traceback.format_exc())
         error_message = openai_client.classify_openai_error(str(e))
         raise HTTPException(status_code=500, detail=error_message)
@@ -121,12 +121,12 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
 @router.post("/v1/messages/count_tokens")
 async def count_tokens(request: ClaudeTokenCountRequest, _: None = Depends(validate_api_key)):
     try:
-        # For token counting, we'll use a simple estimation
-        # In a real implementation, you might want to use tiktoken or similar
+        # 对于token计数，我们将使用简单的估算方法
+        # 在实际实现中，您可能需要使用tiktoken或类似的工具
 
         total_chars = 0
 
-        # Count system message characters
+        # 统计系统消息字符数
         if request.system:
             if isinstance(request.system, str):
                 total_chars += len(request.system)
@@ -135,7 +135,7 @@ async def count_tokens(request: ClaudeTokenCountRequest, _: None = Depends(valid
                     if hasattr(block, "text"):
                         total_chars += len(block.text)
 
-        # Count message characters
+        # 统计消息字符数
         for msg in request.messages:
             if msg.content is None:
                 continue
@@ -146,19 +146,19 @@ async def count_tokens(request: ClaudeTokenCountRequest, _: None = Depends(valid
                     if hasattr(block, "text") and block.text is not None:
                         total_chars += len(block.text)
 
-        # Rough estimation: 4 characters per token
+        # 粗略估算：每4个字符一个token
         estimated_tokens = max(1, total_chars // 4)
 
         return {"input_tokens": estimated_tokens}
 
     except Exception as e:
-        logger.error(f"Error counting tokens: {e}")
+        logger.error(f"统计token时出错: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """健康检查端点"""
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -170,9 +170,9 @@ async def health_check():
 
 @router.get("/test-connection")
 async def test_connection():
-    """Test API connectivity to OpenAI"""
+    """测试与OpenAI的API连接"""
     try:
-        # Simple test request to verify API connectivity
+        # 简单的测试请求以验证API连接
         test_response = await openai_client.create_chat_completion(
             {
                 "model": config.small_model,
@@ -183,14 +183,14 @@ async def test_connection():
 
         return {
             "status": "success",
-            "message": "Successfully connected to OpenAI API",
+            "message": "成功连接到OpenAI API",
             "model_used": config.small_model,
             "timestamp": datetime.now().isoformat(),
             "response_id": test_response.get("id", "unknown"),
         }
 
     except Exception as e:
-        logger.error(f"API connectivity test failed: {e}")
+        logger.error(f"API连接测试失败: {e}")
         return JSONResponse(
             status_code=503,
             content={
@@ -199,9 +199,9 @@ async def test_connection():
                 "message": str(e),
                 "timestamp": datetime.now().isoformat(),
                 "suggestions": [
-                    "Check your OPENAI_API_KEY is valid",
-                    "Verify your API key has the necessary permissions",
-                    "Check if you have reached rate limits",
+                    "检查您的OPENAI_API_KEY是否有效",
+                    "验证您的API密钥是否具有必要的权限",
+                    "检查是否达到了速率限制",
                 ],
             },
         )
@@ -209,7 +209,7 @@ async def test_connection():
 
 @router.get("/")
 async def root():
-    """Root endpoint"""
+    """根端点"""
     return {
         "message": "Claude-to-OpenAI API Proxy v1.0.0",
         "status": "running",

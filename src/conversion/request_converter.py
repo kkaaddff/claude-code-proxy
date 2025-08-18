@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def convert_claude_to_openai(
     claude_request: ClaudeMessagesRequest, model_manager
 ) -> Dict[str, Any]:
-    """Convert Claude API request format to OpenAI format."""
+    """中文说明"""""
 
     # Map model
     openai_model = model_manager.map_claude_model_to_openai(claude_request.model)
@@ -130,7 +130,7 @@ def convert_claude_to_openai(
 
 
 def convert_claude_user_message(msg: ClaudeMessage) -> Dict[str, Any]:
-    """Convert Claude user message to OpenAI format."""
+    """中文说明"""""
     if msg.content is None:
         return {"role": Constants.ROLE_USER, "content": ""}
     
@@ -166,7 +166,7 @@ def convert_claude_user_message(msg: ClaudeMessage) -> Dict[str, Any]:
 
 
 def convert_claude_assistant_message(msg: ClaudeMessage) -> Dict[str, Any]:
-    """Convert Claude assistant message to OpenAI format."""
+    """中文说明"""""
     text_parts = []
     tool_calls = []
 
@@ -207,7 +207,7 @@ def convert_claude_assistant_message(msg: ClaudeMessage) -> Dict[str, Any]:
 
 
 def convert_claude_tool_results(msg: ClaudeMessage) -> List[Dict[str, Any]]:
-    """Convert Claude tool results to OpenAI format."""
+    """中文说明"""""
     tool_messages = []
 
     if isinstance(msg.content, list):
@@ -226,7 +226,7 @@ def convert_claude_tool_results(msg: ClaudeMessage) -> List[Dict[str, Any]]:
 
 
 def parse_tool_result_content(content):
-    """Parse and normalize tool result content into a string format."""
+    """中文说明"""""
     if content is None:
         return "No content provided"
 

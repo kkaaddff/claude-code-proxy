@@ -4,44 +4,44 @@ import uvicorn
 import sys
 from src.core.config import config
 
-app = FastAPI(title="Claude-to-OpenAI API Proxy", version="1.0.0")
+app = FastAPI(title="Claude到OpenAI API代理", version="1.0.0")
 
 app.include_router(api_router)
 
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--help":
-        print("Claude-to-OpenAI API Proxy v1.0.0")
+        print("Claude到OpenAI API代理 v1.0.0")
         print("")
         print("Usage: python src/main.py")
         print("")
-        print("Required environment variables:")
-        print("  OPENAI_API_KEY - Your OpenAI API key")
+        print("必需的环境变量：")
+        print("  OPENAI_API_KEY - 您的OpenAI API密钥")
         print("")
-        print("Optional environment variables:")
-        print("  ANTHROPIC_API_KEY - Expected Anthropic API key for client validation")
-        print("                      If set, clients must provide this exact API key")
+        print("可选的环境变量：")
+        print("  ANTHROPIC_API_KEY - 预期的Anthropic API密钥用于客户端验证")
+        print("                      如果设置，客户端必须提供此确切的API密钥")
         print(
-            f"  OPENAI_BASE_URL - OpenAI API base URL (default: https://api.openai.com/v1)"
+            f"  OPENAI_BASE_URL - OpenAI API基础URL (default: https://api.openai.com/v1)"
         )
-        print(f"  BIG_MODEL - Model for opus requests (default: gpt-4o)")
-        print(f"  MIDDLE_MODEL - Model for sonnet requests (default: gpt-4o)")
-        print(f"  SMALL_MODEL - Model for haiku requests (default: gpt-4o-mini)")
-        print(f"  HOST - Server host (default: 0.0.0.0)")
-        print(f"  PORT - Server port (default: 8082)")
-        print(f"  LOG_LEVEL - Logging level (default: WARNING)")
-        print(f"  MAX_TOKENS_LIMIT - Token limit (default: 4096)")
-        print(f"  MIN_TOKENS_LIMIT - Minimum token limit (default: 100)")
-        print(f"  REQUEST_TIMEOUT - Request timeout in seconds (default: 90)")
+        print(f"  BIG_MODEL - 用于opus请求的模型 (default: gpt-4o)")
+        print(f"  MIDDLE_MODEL - 用于sonnet请求的模型 (default: gpt-4o)")
+        print(f"  SMALL_MODEL - 用于haiku请求的模型 (default: gpt-4o-mini)")
+        print(f"  HOST - 服务器主机 (default: 0.0.0.0)")
+        print(f"  PORT - 服务器端口 (default: 8082)")
+        print(f"  LOG_LEVEL - 日志级别 (default: WARNING)")
+        print(f"  MAX_TOKENS_LIMIT - Token限制 (default: 4096)")
+        print(f"  MIN_TOKENS_LIMIT - 最小token限制 (default: 100)")
+        print(f"  REQUEST_TIMEOUT - 请求超时时间（秒） (default: 90)")
         print("")
-        print("Model mapping:")
-        print(f"  Claude haiku models -> {config.small_model}")
-        print(f"  Claude sonnet/opus models -> {config.big_model}")
+        print("模型映射：")
+        print(f"  Claude haiku模型 -> {config.small_model}")
+        print(f"  Claude sonnet/opus模型 -> {config.big_model}")
         sys.exit(0)
 
-    # Configuration summary
-    print("🚀 Claude-to-OpenAI API Proxy v1.0.0")
-    print(f"✅ Configuration loaded successfully")
+    # 配置摘要
+    print("🚀 Claude到OpenAI API代理 v1.0.0")
+    print(f"✅ 配置加载成功")
     print(f"   OpenAI Base URL: {config.openai_base_url}")
     print(f"   Big Model (opus): {config.big_model}")
     print(f"   Middle Model (sonnet): {config.middle_model}")
@@ -49,18 +49,18 @@ def main():
     print(f"   Max Tokens Limit: {config.max_tokens_limit}")
     print(f"   Request Timeout: {config.request_timeout}s")
     print(f"   Server: {config.host}:{config.port}")
-    print(f"   Client API Key Validation: {'Enabled' if config.anthropic_api_key else 'Disabled'}")
+    print(f"   客户端API密钥验证: {'Enabled' if config.anthropic_api_key else 'Disabled'}")
     print("")
 
-    # Parse log level - extract just the first word to handle comments
+    # 解析日志级别 - 只提取第一个单词以处理注释
     log_level = config.log_level.split()[0].lower()
     
-    # Validate and set default if invalid
+    # 如果无效则验证并设置默认值
     valid_levels = ['debug', 'info', 'warning', 'error', 'critical']
     if log_level not in valid_levels:
         log_level = 'info'
 
-    # Start server
+    # 启动服务器
     uvicorn.run(
         "src.main:app",
         host=config.host,
