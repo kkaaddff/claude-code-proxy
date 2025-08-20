@@ -1,21 +1,22 @@
 import logging
-from src.core.config import config
+from app.core.config import config
 
-# Parse log level - extract just the first word to handle comments
+# 解析日志级别
 log_level = config.log_level.split()[0].upper()
 
-# Validate and set default if invalid
+# 验证并设置默认值
 valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 if log_level not in valid_levels:
     log_level = 'INFO'
 
-# Logging Configuration
+# 日志配置
 logging.basicConfig(
     level=getattr(logging, log_level),
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
+
 logger = logging.getLogger(__name__)
 
-# Configure uvicorn to be quieter
+# 配置 uvicorn 日志级别
 for uvicorn_logger in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
     logging.getLogger(uvicorn_logger).setLevel(logging.WARNING)

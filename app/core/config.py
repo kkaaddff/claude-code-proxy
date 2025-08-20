@@ -1,0 +1,46 @@
+import os
+import sys
+from typing import Optional
+
+class Config:
+    """服务配置类"""
+    
+    def __init__(self):
+        # 服务器配置
+        self.host = os.environ.get("HOST", "0.0.0.0")
+        self.port = int(os.environ.get("PORT", "8000"))
+        self.log_level = os.environ.get("LOG_LEVEL", "INFO")
+        
+        # 代理配置
+        self.request_timeout = int(os.environ.get("REQUEST_TIMEOUT", "90"))
+        self.max_retries = int(os.environ.get("MAX_RETRIES", "2"))
+        
+        # 默认 API 密钥 (可选，用于当客户端未提供时)
+        self.default_openai_api_key = os.environ.get("OPENAI_API_KEY")
+        self.default_anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        
+        # 模型映射配置
+        self.big_model = os.environ.get("BIG_MODEL", "gpt-4o")
+        self.middle_model = os.environ.get("MIDDLE_MODEL", self.big_model)
+        self.small_model = os.environ.get("SMALL_MODEL", "gpt-4o-mini")
+        
+        # Token 限制
+        self.max_tokens_limit = int(os.environ.get("MAX_TOKENS_LIMIT", "4096"))
+        self.min_tokens_limit = int(os.environ.get("MIN_TOKENS_LIMIT", "100"))
+    
+    def get_api_key_for_target(self, target_baseurl: str, client_api_key: Optional[str] = None) -> Optional[str]:
+        """根据目标 URL 获取合适的 API 密钥"""
+        if client_api_key:
+            return client_api_key
+        
+        # 根据目标 URL 判断使用哪个默认密钥
+        if "anthropic.com" in target_baseurl:
+            return self.default_anthropic_api_key
+        elif "openai.com" in target_baseurl or "api.openai.com" in target_baseurl:
+            return self.default_openai_api_key
+        else:
+            # 对于其他服务，优先使用 OpenAI 密钥
+            return client_api_key or self.default_openai_api_key
+
+# 全局配置实例
+config = Config()

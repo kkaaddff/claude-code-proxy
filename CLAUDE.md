@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Installation and Setup
 ```bash
+conda activate mcp-atlassian
 # Install dependencies
 pip install -r requirements.txt
 ```

@@ -1,18 +1,15 @@
-# Claude代码代理
+# 透明转换代理服务
 
-一个代理服务器，使**Claude代码**能够与OpenAI兼容的API提供商配合使用。 将Claude API请求转换为OpenAI API调用，允许您通过Claude代码CLI使用各种LLM提供商。
-
-![Claude Code Proxy](demo.png)
+一个支持 OpenAI ↔ Anthropic API 格式透明转换的代理服务。允许 CLI 工具通过统一的接口访问不同的 LLM API，无需修改客户端代码。
 
 ## 功能特性
 
-- **完整的Claude API兼容性**: Complete `/v1/messages` endpoint support
-- **多提供商支持**: OpenAI、Azure OpenAI、本地模型（Ollama）以及任何OpenAI兼容的API
-- **智能模型映射**: 通过环境变量配置大模型和小模型
-- **函数调用**: 完整的工具使用支持和正确的转换
-- **流式响应**: 实时SSE流式支持
-- **图像支持**: Base64编码的图像输入
+- **透明格式转换**: 自动检测并转换 OpenAI 和 Anthropic API 格式
+- **流式响应支持**: 完整的 SSE 流式响应转换
+- **多模态支持**: 支持文本和图像输入
+- **工具调用支持**: 完整的 function calling 支持
 - **错误处理**: 全面的错误处理和日志记录
+- **灵活配置**: 支持环境变量配置
 
 ## 快速开始
 
@@ -22,190 +19,204 @@
 pip install -r requirements.txt
 ```
 
-### 2. 配置
+### 2. 配置环境变量
 
 ```bash
-cp .env.example .env
-# 编辑.env并添加您的API配置
+# 可选：设置默认 API 密钥
+export OPENAI_API_KEY="sk-your-openai-key"
+export ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"
+
+# 可选：服务器配置
+export HOST="0.0.0.0"
+export PORT="8000"
+export LOG_LEVEL="INFO"
 ```
 
-### 3. 启动服务器
+### 3. 启动服务
 
 ```bash
-source .env
-python start_proxy.py
+conda activate mcp-atlassian
+python -m app.server
 ```
 
-### 4. 与Claude代码一起使用
+### 4. 使用代理服务
+
+#### 使用 OpenAI 格式调用 Anthropic API
 
 ```bash
-# 如果代理中未设置ANTHROPIC_API_KEY：
-ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY="any-value" claude
-
-# 如果代理中设置了ANTHROPIC_API_KEY：
-ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY="exact-matching-key" claude
+curl -X POST "http://localhost:8000/proxy/v1/chat/completions?target_baseurl=https://api.anthropic.com/v1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-ant-your-anthropic-key" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ],
+    "max_tokens": 100
+  }'
 ```
+
+#### 使用 Anthropic 格式调用 OpenAI API
+
+```bash
+curl -X POST "http://localhost:8000/proxy/v1/messages?target_baseurl=https://api.openai.com/v1" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: sk-your-openai-key" \
+  -d '{
+    "model": "claude-3-sonnet-20240229",
+    "max_tokens": 100,
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
+```
+
+#### CLI 工具集成
+
+配置环境变量后，CLI 工具可以透明地使用代理：
+
+```bash
+# 让 OpenAI CLI 调用 Anthropic API
+export OPENAI_BASE_URL="http://127.0.0.1:8000/proxy/v1/chat/completions?target_baseurl=https://api.anthropic.com/v1"
+export OPENAI_API_KEY="sk-ant-your-anthropic-key"
+
+# 现在可以直接使用 OpenAI CLI
+openai api chat_completions.create -m claude-3-sonnet-20240229 -g "你好"
+```
+
+## API 端点
+
+### 代理端点
+
+- `POST /proxy/{api_path}?target_baseurl={target_url}` - 透明代理请求
+
+### 服务端点
+
+- `GET /` - 服务信息
+- `GET /health` - 健康检查
+- `GET /proxy/health` - 代理健康检查
 
 ## 配置
 
 ### 环境变量
 
-**必需：**
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `HOST` | `0.0.0.0` | 服务器主机 |
+| `PORT` | `8000` | 服务器端口 |
+| `LOG_LEVEL` | `INFO` | 日志级别 |
+| `REQUEST_TIMEOUT` | `90` | 请求超时时间（秒） |
+| `MAX_RETRIES` | `2` | 最大重试次数 |
 
-- `OPENAI_API_KEY` - 目标提供商的API密钥
+### API 密钥配置
 
-**安全性：**
+| 变量名 | 说明 |
+|--------|------|
+| `OPENAI_API_KEY` | 默认 OpenAI API 密钥 |
+| `ANTHROPIC_API_KEY` | 默认 Anthropic API 密钥 |
 
-- `ANTHROPIC_API_KEY` - 预期的Anthropic API密钥用于客户端验证
-  - 如果设置，客户端必须提供此确切的API密钥来访问代理
-  - 如果未设置，任何API密钥都将被接受
+### 模型映射配置
 
-**模型配置：**
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `BIG_MODEL` | `gpt-4o` | 大模型映射 |
+| `MIDDLE_MODEL` | `gpt-4o` | 中等模型映射 |
+| `SMALL_MODEL` | `gpt-4o-mini` | 小模型映射 |
 
-- `BIG_MODEL` - 用于Claude opus请求的模型 (默认： `gpt-4o`)
-- `MIDDLE_MODEL` - 用于Claude opus请求的模型 (默认： `gpt-4o`)
-- `SMALL_MODEL` - 用于Claude haiku请求的模型 (默认： `gpt-4o-mini`)
+## 工作原理
 
-**API配置：**
+1. **请求接收**: 代理接收带有 `target_baseurl` 参数的请求
+2. **格式检测**: 自动检测请求格式（OpenAI 或 Anthropic）
+3. **目标检测**: 根据目标 URL 确定目标 API 格式
+4. **格式转换**: 如果格式不匹配，自动进行转换
+5. **请求转发**: 将转换后的请求发送到目标 API
+6. **响应转换**: 将目标 API 的响应转换回原始格式
+7. **结果返回**: 返回转换后的响应给客户端
 
-- `OPENAI_BASE_URL` - API基础URL (默认： `https://api.openai.com/v1`)
+## 支持的转换
 
-**服务器设置：**
+### 请求格式转换
 
-- `HOST` - 服务器主机 (默认： `0.0.0.0`)
-- `PORT` - 服务器端口 (默认： `8082`)
-- `LOG_LEVEL` - 日志级别 (默认： `WARNING`)
+- OpenAI → Anthropic
+  - `messages` 数组处理
+  - `system` 消息提取
+  - `tools` 和 `tool_choice` 转换
+  - 多模态内容转换
 
-**性能：**
+- Anthropic → OpenAI
+  - `system` 消息合并到 `messages`
+  - `max_tokens` 参数处理
+  - 工具结果消息转换
 
-- `MAX_TOKENS_LIMIT` - Token限制 (默认： `4096`)
-- `REQUEST_TIMEOUT` - 请求超时时间（秒） (默认： `90`)
+### 响应格式转换
 
-### 模型映射
+- 消息内容转换
+- 工具调用格式转换
+- 停止原因映射
+- 使用统计转换
 
-代理将Claude模型请求映射到您配置的模型：
+### 流式响应转换
 
-| Claude请求                 | 映射到     | 环境变量   |
-| ------------------------------ | ------------- | ---------------------- |
-| 包含"haiku"的模型            | `SMALL_MODEL` | 默认： `gpt-4o-mini` |
-| 包含"sonnet"的模型           | `MIDDLE_MODEL`| 默认： `BIG_MODEL`   |
-| 包含"opus"的模型             | `BIG_MODEL`   | 默认： `gpt-4o`      |
+- SSE 事件格式转换
+- 增量内容转换
+- 工具调用流式处理
 
-### 提供商示例
+## 错误处理
 
-#### OpenAI
+代理服务提供详细的错误信息和分类：
 
-```bash
-OPENAI_API_KEY="sk-your-openai-key"
-OPENAI_BASE_URL="https://api.openai.com/v1"
-BIG_MODEL="gpt-4o"
-MIDDLE_MODEL="gpt-4o"
-SMALL_MODEL="gpt-4o-mini"
-```
-
-#### Azure OpenAI
-
-```bash
-OPENAI_API_KEY="your-azure-key"
-OPENAI_BASE_URL="https://your-resource.openai.azure.com/openai/deployments/your-deployment"
-BIG_MODEL="gpt-4"
-MIDDLE_MODEL="gpt-4"
-SMALL_MODEL="gpt-35-turbo"
-```
-
-#### 本地模型（Ollama）
-
-```bash
-OPENAI_API_KEY="dummy-key"  # 必需但可以是虚拟值
-OPENAI_BASE_URL="http://localhost:11434/v1"
-BIG_MODEL="llama3.1:70b"
-MIDDLE_MODEL="llama3.1:70b"
-SMALL_MODEL="llama3.1:8b"
-```
-
-#### 其他提供商
-
-任何OpenAI兼容的API都可以通过设置适当的`OPENAI_BASE_URL`来使用.
-
-## 使用示例
-
-### 基本聊天
-
-```python
-import httpx
-
-response = httpx.post(
-    "http://localhost:8082/v1/messages",
-    json={
-        "model": "claude-3-5-sonnet-20241022",  # Maps to MIDDLE_MODEL
-        "max_tokens": 100,
-        "messages": [
-            {"role": "user", "content": "Hello!"}
-        ]
-    }
-)
-```
-
-## 与Claude代码集成
-
-此代理旨在与Claude代码CLI无缝配合：
-
-```bash
-# 启动代理
-python start_proxy.py
-
-# 使用Claude代码与代理
-ANTHROPIC_BASE_URL=http://localhost:8082 claude
-
-# 或永久设置
-export ANTHROPIC_BASE_URL=http://localhost:8082
-claude
-```
-
-## 测试
-
-测试代理功能：
-
-```bash
-# 运行全面测试
-python tests/test_main.py
-```
+- **400**: 请求参数错误
+- **401**: 认证失败
+- **403**: 权限不足
+- **404**: 资源未找到
+- **429**: 请求过于频繁
+- **500**: 内部服务器错误
+- **502**: 目标服务器错误
+- **503**: 服务不可用
 
 ## 开发
-
-```bash
-# 格式化代码
-black src/
-isort src/
-
-# 类型检查
-mypy src/
-
-# 运行测试
-pytest tests/test_main.py -v
-```
 
 ### 项目结构
 
 ```
-claude-code-proxy/
-├── src/
-│   ├── main.py  # 主服务器
-│   ├── test_claude_to_openai.py    # 测试
-│   └── [other modules...]
-├── start_proxy.py                  # 启动脚本
-├── .env.example                    # 配置模板
-└── README.md                       # 此文件
+app/
+├── __init__.py
+├── __main__.py          # 应用入口点
+├── server.py            # 服务器配置
+├── api/                 # API 路由
+│   ├── __init__.py
+│   └── proxy.py         # 代理路由
+├── clients/             # HTTP 客户端
+│   ├── __init__.py
+│   └── http_client.py   # 异步 HTTP 客户端
+├── converters/          # 格式转换器
+│   ├── __init__.py
+│   ├── openai_to_anthropic.py
+│   ├── anthropic_to_openai.py
+│   └── response_converter.py
+└── core/                # 核心模块
+    ├── __init__.py
+    ├── config.py        # 配置管理
+    ├── constants.py     # 常量定义
+    ├── detector.py      # 格式检测器
+    ├── logging.py       # 日志配置
+    └── model_manager.py # 模型映射管理
 ```
 
-## 性能
+### 运行测试
 
-- **异步/等待**以实现高并发
-- **连接池**以提高效率
-- **流式支持**以实现实时响应
-- **可配置的超时**和重试
-- **智能错误处理**和详细日志
+```bash
+# 安装开发依赖
+pip install -r requirements.txt
+
+# 运行代码格式化
+black app/
+isort app/
+
+# 类型检查
+mypy app/
+```
 
 ## 许可证
 
-MIT许可证
+MIT 许可证
