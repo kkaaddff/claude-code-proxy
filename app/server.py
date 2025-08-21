@@ -30,9 +30,15 @@ def create_app() -> FastAPI:
             "version": "1.0.0",
             "description": "OpenAI ↔ Anthropic API 透明转换代理",
             "usage": {
-                "endpoint": "/proxy/{api_path}",
-                "parameter": "target_baseurl",
-                "example": "/proxy/v1/chat/completions?target_baseurl=https://api.anthropic.com/v1"
+                "endpoints": {
+                    "openai_to_anthropic": "/proxy/anthropic?target_baseurl={target_url}",
+                    "anthropic_to_openai": "/proxy/openai?target_baseurl={target_url}"
+                },
+                "examples": {
+                    "openai_to_anthropic": "/proxy/anthropic?target_baseurl=https://qa.aiapi.amh-group.com/mid-qwen/v1/messages",
+                    "anthropic_to_openai": "/proxy/openai?target_baseurl=https://qa.aiapi.amh-group.com/mid-claude/v1/chat/completions"
+                },
+                "description": "明确的转换端点，不支持自动格式检测"
             },
             "health": "/health"
         }

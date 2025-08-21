@@ -7,9 +7,6 @@ from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional, Dict, Any
 import json
-from urllib.parse import urlparse, parse_qs
-
-from app.core.detector import APIFormatDetector
 from app.core.constants import APIFormat
 from app.core.config import config
 from app.core.logging import logger
@@ -20,19 +17,64 @@ from app.converters.response_converter import ResponseConverter
 
 router = APIRouter()
 
-@router.api_route("/{path:path}", methods=["POST"])
-async def proxy_request(
-    path: str,
+@router.post("/anthropic")
+async def proxy_to_anthropic(
     request: Request,
     authorization: Optional[str] = Header(None),
     x_api_key: Optional[str] = Header(None)
 ):
     """
-    透明代理请求处理
+    OpenAI -> Anthropic 转换代理
     
-    支持的 URL 格式:
-    - /proxy/v1/chat/completions?target_baseurl=https://api.anthropic.com/v1
-    - /proxy/v1/messages?target_baseurl=https://api.openai.com/v1
+    将 OpenAI 格式的请求转换为 Anthropic 格式并转发到目标服务
+    URL 格式: /proxy/anthropic?target_baseurl=https://qa.aiapi.amh-group.com/mid-qwen
+    """
+    return await _handle_proxy_request(
+        request=request,
+        source_format=APIFormat.OPENAI,
+        target_format=APIFormat.ANTHROPIC,
+        authorization=authorization,
+        x_api_key=x_api_key
+    )
+
+@router.post("/openai")
+async def proxy_to_openai(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None)
+):
+    """
+    Anthropic -> OpenAI 转换代理
+    
+    将 Anthropic 格式的请求转换为 OpenAI 格式并转发到目标服务
+    URL 格式: /proxy/openai?target_baseurl=https://qa.aiapi.amh-group.com/mid-claude
+    """
+    return await _handle_proxy_request(
+        request=request,
+        source_format=APIFormat.ANTHROPIC,
+        target_format=APIFormat.OPENAI,
+        authorization=authorization,
+        x_api_key=x_api_key
+    )
+
+
+
+async def _handle_proxy_request(
+    request: Request,
+    source_format: str,
+    target_format: str,
+    authorization: Optional[str] = None,
+    x_api_key: Optional[str] = None
+):
+    """
+    代理请求处理函数
+    
+    Args:
+        request: FastAPI 请求对象
+        source_format: 源格式 (OPENAI 或 ANTHROPIC)
+        target_format: 目标格式 (OPENAI 或 ANTHROPIC)
+        authorization: Authorization 头
+        x_api_key: X-API-Key 头
     """
     try:
         # 获取请求数据
@@ -48,23 +90,17 @@ async def proxy_request(
             )
         
         # 提取 API 密钥
-        client_api_key = None
+        api_key = None
         if authorization and authorization.startswith("Bearer "):
-            client_api_key = authorization.replace("Bearer ", "")
+            api_key = authorization.replace("Bearer ", "")
         elif x_api_key:
-            client_api_key = x_api_key
+            api_key = x_api_key
         
-        # 获取合适的 API 密钥
-        api_key = config.get_api_key_for_target(target_baseurl, client_api_key)
         if not api_key:
             raise HTTPException(
                 status_code=401,
                 detail="缺少 API 密钥。请在请求头中提供有效的 API 密钥。"
             )
-        
-        # 检测请求和目标格式
-        source_format = APIFormatDetector.detect_request_format(request_data, path)
-        target_format = APIFormatDetector.detect_target_format(target_baseurl)
         
         logger.info(f"代理请求: {source_format} -> {target_format}")
         logger.debug(f"目标 URL: {target_baseurl}")
@@ -73,19 +109,21 @@ async def proxy_request(
         if source_format != target_format:
             if source_format == APIFormat.OPENAI and target_format == APIFormat.ANTHROPIC:
                 converted_data = OpenAIToAnthropicConverter.convert_request(request_data)
-                target_path = "/v1/messages"
             elif source_format == APIFormat.ANTHROPIC and target_format == APIFormat.OPENAI:
                 converted_data = AnthropicToOpenAIConverter.convert_request(request_data)
-                target_path = "/v1/chat/completions"
             else:
+                # 不应该到达这里，因为我们已经明确指定了源和目标格式
                 converted_data = request_data
-                target_path = f"/{path}"
         else:
+            # 如果源格式和目标格式相同，不需要转换
             converted_data = request_data
-            target_path = f"/{path}"
         
-        # 构建完整的目标 URL
-        target_url = f"{target_baseurl.rstrip('/')}{target_path}"
+        # 直接使用 target_baseurl，不添加额外路径
+        # target_baseurl 应该已经包含完整的端点路径
+        target_url = target_baseurl.rstrip('/')
+        
+        logger.info(f"构建的目标URL: {target_url}")
+        logger.debug(f"转换后的数据: {converted_data}")
         
         # 构建请求头
         headers = http_client.build_headers(target_baseurl, api_key)
@@ -210,3 +248,5 @@ async def proxy_health():
         "version": "1.0.0",
         "supported_formats": ["OpenAI", "Anthropic"]
     }
+
+

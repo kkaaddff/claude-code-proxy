@@ -52,8 +52,17 @@ class APIFormatDetector:
         Returns:
             APIFormat.OPENAI 或 APIFormat.ANTHROPIC
         """
-        if "anthropic.com" in target_baseurl:
+        target_baseurl_lower = target_baseurl.lower()
+        
+        # 检测 Anthropic 相关的关键词
+        anthropic_keywords = ["anthropic.com", "claude", "mid-claude"]
+        if any(keyword in target_baseurl_lower for keyword in anthropic_keywords):
             return APIFormat.ANTHROPIC
-        else:
-            # 默认认为是 OpenAI 兼容格式
+        
+        # 检测 OpenAI 相关的关键词
+        openai_keywords = ["openai.com", "api.openai.com", "gpt", "mid-qwen", "qwen"]
+        if any(keyword in target_baseurl_lower for keyword in openai_keywords):
             return APIFormat.OPENAI
+        
+        # 默认认为是 OpenAI 兼容格式
+        return APIFormat.OPENAI
